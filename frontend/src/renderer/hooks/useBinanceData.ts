@@ -39,6 +39,17 @@ export const useBinanceData = (symbol: string = 'BTCUSDT', interval: string = '1
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectTimerRef = useRef<any>(null);
 
+    const getBackendWsUrl = useCallback(() => {
+        const envUrl = (import.meta as any).env?.VITE_BACKEND_WS_URL as string | undefined;
+        if (envUrl) return envUrl;
+
+        const hostname = typeof window !== 'undefined' && window.location?.hostname
+            ? window.location.hostname
+            : 'localhost';
+
+        return `ws://${hostname}:8000/ws`;
+    }, []);
+
     // 初始加載歷史數據
     const fetchHistory = useCallback(async (): Promise<boolean> => {
         try {
@@ -171,7 +182,7 @@ export const useBinanceData = (symbol: string = 'BTCUSDT', interval: string = '1
         const connectWS = () => {
             if (!isMounted) return;
 
-            const ws = new WebSocket('ws://localhost:8000/ws');
+            const ws = new WebSocket(getBackendWsUrl());
             wsRef.current = ws;
 
             ws.onopen = () => {
@@ -244,8 +255,8 @@ export const useBinanceData = (symbol: string = 'BTCUSDT', interval: string = '1
                 }
             };
 
-            ws.onerror = (error) => {
-                console.error('❌ [useBinanceData] WS Error:', error);
+            ws.onerror = () => {
+                console.warn('⚠️ [useBinanceData] WS connection error, will retry...');
                 setStatus('error');
             };
 
@@ -265,7 +276,7 @@ export const useBinanceData = (symbol: string = 'BTCUSDT', interval: string = '1
                 wsRef.current.close();
             }
         };
-    }, [symbol, interval, fetchHistory]);
+    }, [symbol, interval, fetchHistory, getBackendWsUrl]);
 
     return { data, ticker, status, loadMoreHistory, isLoadingMore };
 };
