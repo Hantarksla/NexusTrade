@@ -181,11 +181,26 @@ const LogConsole: React.FC = () => {
     // 真實的後端日誌 (通過 WebSocket 接收)
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const wsRef = useRef<WebSocket | null>(null);
+    const reconnectTimerRef = useRef<number | null>(null);
+    const isUnmountedRef = useRef(false);
+
+    const getBackendWsUrl = React.useCallback(() => {
+        const envUrl = (import.meta as any).env?.VITE_BACKEND_WS_URL as string | undefined;
+        if (envUrl) return envUrl;
+
+        const hostname = typeof window !== 'undefined' && window.location?.hostname
+            ? window.location.hostname
+            : 'localhost';
+
+        return `ws://${hostname}:8000/ws`;
+    }, []);
 
     // 連接到後端 WebSocket 接收日誌
     useEffect(() => {
         const connectWebSocket = () => {
-            const ws = new WebSocket('ws://localhost:8000/ws');
+            if (isUnmountedRef.current) return;
+
+            const ws = new WebSocket(getBackendWsUrl());
             wsRef.current = ws;
 
             ws.onopen = () => {
@@ -212,25 +227,32 @@ const LogConsole: React.FC = () => {
                 }
             };
 
-            ws.onerror = (error) => {
-                console.error('[LogConsole] WebSocket error:', error);
+            ws.onerror = () => {
+                console.warn('[LogConsole] WebSocket connection error, waiting to reconnect...');
             };
 
             ws.onclose = () => {
+                if (isUnmountedRef.current) return;
                 console.log('[LogConsole] WebSocket closed, reconnecting...');
                 // 5 秒後重連
-                setTimeout(connectWebSocket, 5000);
+                reconnectTimerRef.current = window.setTimeout(connectWebSocket, 5000);
             };
         };
 
         connectWebSocket();
 
         return () => {
+            isUnmountedRef.current = true;
+            if (reconnectTimerRef.current) {
+                window.clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             if (wsRef.current) {
+                wsRef.current.onclose = null;
                 wsRef.current.close();
             }
         };
-    }, []);
+    }, [getBackendWsUrl]);
 
     const tabs = [
         { id: 'SYSTEM CONSOLE', label: 'SYSTEM CONSOLE', icon: <Terminal size={12} /> },

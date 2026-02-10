@@ -74,6 +74,7 @@ const ChartMonitor: React.FC = () => {
                             data={data}
                             containerClassName="w-full h-full"
                             onLoadMore={loadMoreHistory}
+                            currentPrice={ticker?.price}
                         />
 
                         {/* Overlay Info */}
