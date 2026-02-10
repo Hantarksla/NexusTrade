@@ -5,12 +5,14 @@ interface TradingViewChartProps {
     data: CandlestickData[];
     containerClassName?: string;
     onLoadMore?: () => Promise<boolean>;  // 增量加載回調函數
+    currentPrice?: number;
 }
 
-const TradingViewChart: React.FC<TradingViewChartProps> = ({ data, containerClassName, onLoadMore }) => {
+const TradingViewChart: React.FC<TradingViewChartProps> = ({ data, containerClassName, onLoadMore, currentPrice }) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<any>(null);
     const seriesRef = useRef<any>(null);
+    const currentPriceLineRef = useRef<any>(null);
     const isLoadingRef = useRef(false);  // 防止重複加載
     const onLoadMoreRef = useRef(onLoadMore);
     const prevRangeRef = useRef<any>(null);
@@ -61,6 +63,9 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({ data, containerClas
             borderVisible: false,
             wickUpColor: '#10B981',
             wickDownColor: '#EF4444',
+            // 使用自定義實時價格線，避免與預設最後值標籤不一致
+            lastValueVisible: false,
+            priceLineVisible: false,
         });
 
         if (data && data.length > 0) {
@@ -148,6 +153,27 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({ data, containerClas
             seriesRef.current.currentData = data;
         }
     }, [data]);
+
+    // 實時價格線：直接使用 ticker 當前價，確保線與右側標籤一致
+    useEffect(() => {
+        if (!seriesRef.current || typeof currentPrice !== 'number' || Number.isNaN(currentPrice)) return;
+
+        if (!currentPriceLineRef.current) {
+            currentPriceLineRef.current = seriesRef.current.createPriceLine({
+                price: currentPrice,
+                color: '#10B981',
+                lineWidth: 1,
+                lineStyle: 2,
+                axisLabelVisible: true,
+                title: '',
+            });
+            return;
+        }
+
+        currentPriceLineRef.current.applyOptions({
+            price: currentPrice,
+        });
+    }, [currentPrice]);
 
     return <div ref={chartContainerRef} className={containerClassName} />;
 };
