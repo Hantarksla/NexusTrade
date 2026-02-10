@@ -88,10 +88,23 @@ export const useBinanceData = (symbol: string = 'BTCUSDT', interval: string = '1
             const moreHistory = await response.json();
 
             if (Array.isArray(moreHistory) && moreHistory.length > 0) {
-                console.log(`[useBinanceData] ✅ Loaded ${moreHistory.length} more bars`);
+                const olderHistory = moreHistory.filter((bar: CandlestickData) => {
+                    const barTime = typeof bar.time === 'number'
+                        ? bar.time
+                        : (bar.time as any).timestamp;
+                    return barTime < earliestTime;
+                });
+
+                if (olderHistory.length === 0) {
+                    console.log('[useBinanceData] ℹ️ API returned no older bars (already at oldest or duplicate batch)');
+                    setIsLoadingMore(false);
+                    return false;
+                }
+
+                console.log(`[useBinanceData] ✅ Loaded ${olderHistory.length} older bars`);
 
                 // 將新數據添加到現有數據的前面
-                setData(prevData => [...moreHistory, ...prevData]);
+                setData(prevData => [...olderHistory, ...prevData]);
                 setIsLoadingMore(false);
                 return true;
             } else {
