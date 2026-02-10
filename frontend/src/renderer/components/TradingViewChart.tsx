@@ -155,6 +155,7 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({ data, containerClas
     }, [data]);
 
     // 實時價格線：直接使用 ticker 當前價，確保線與右側標籤一致
+    // 同時把當前未收線 K 棒同步到 ticker 價格，避免快速波動時 K 線視覺延遲
     useEffect(() => {
         if (!seriesRef.current || typeof currentPrice !== 'number' || Number.isNaN(currentPrice)) return;
 
@@ -173,6 +174,21 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({ data, containerClas
         currentPriceLineRef.current.applyOptions({
             price: currentPrice,
         });
+
+        const currentData = seriesRef.current.currentData as CandlestickData[] | undefined;
+        if (!currentData || currentData.length === 0) return;
+
+        const lastBar = currentData[currentData.length - 1];
+        const syncedBar: CandlestickData = {
+            ...lastBar,
+            close: currentPrice,
+            high: Math.max(lastBar.high, currentPrice),
+            low: Math.min(lastBar.low, currentPrice),
+        };
+
+        seriesRef.current.update(syncedBar);
+        currentData[currentData.length - 1] = syncedBar;
+        seriesRef.current.currentData = currentData;
     }, [currentPrice]);
 
     return <div ref={chartContainerRef} className={containerClassName} />;
