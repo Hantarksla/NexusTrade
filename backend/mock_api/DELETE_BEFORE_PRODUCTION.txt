@@ -1,0 +1,39 @@
+"""
+⚠️ DELETE BEFORE PRODUCTION ⚠️
+
+This file contains instructions for removing mock API code.
+
+STEPS TO REMOVE MOCK API:
+========================
+
+1. Delete the entire 'mock_api' folder:
+   rm -rf mock_api/
+
+2. Search for imports from mock_api in the codebase:
+   grep -r "from mock_api" .
+   grep -r "import mock_api" .
+
+3. Replace mock imports with real Binance client:
+   - Find: from mock_api.mock_binance_client import MockBinanceClient
+   - Replace: from core.binance_client import BinanceClient
+
+4. Update any code that checks for mock mode:
+   - Remove any "if USE_MOCK_API:" blocks
+   - Remove MOCK_MODE configuration
+
+5. Verify no references remain:
+   grep -r "mock" . --include="*.py"
+
+6. Test with real Binance API credentials
+
+CHECKLIST:
+==========
+[ ] Deleted mock_api folder
+[ ] Removed all mock_api imports
+[ ] Replaced with real BinanceClient
+[ ] Removed mock mode checks
+[ ] Tested with real API
+[ ] Committed changes
+
+⚠️ DO NOT DEPLOY TO PRODUCTION WITH MOCK API ENABLED ⚠️
+"""

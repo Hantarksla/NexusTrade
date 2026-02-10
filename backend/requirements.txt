@@ -1,0 +1,9 @@
+PySide6==6.6.1 # Will keep for now but might not need
+NodeGraphQt>=0.6.0
+python-binance==1.0.19
+pandas==2.1.3
+numpy==1.26.2
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+cryptography==41.0.7
