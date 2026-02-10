@@ -12,6 +12,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({ data, containerClas
     const chartRef = useRef<any>(null);
     const seriesRef = useRef<any>(null);
     const isLoadingRef = useRef(false);  // 防止重複加載
+    const onLoadMoreRef = useRef(onLoadMore);
+    const prevRangeRef = useRef<any>(null);
+
+    useEffect(() => {
+        onLoadMoreRef.current = onLoadMore;
+    }, [onLoadMore]);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -71,12 +77,12 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({ data, containerClas
             if (logicalRange === null) return;
 
             // 增量加載邏輯：當用戶滾動到左側邊緣時加載更多數據
-            if (onLoadMore && !isLoadingRef.current && logicalRange.from < 10) {
+            if (onLoadMoreRef.current && !isLoadingRef.current && logicalRange.from < 10) {
                 console.log('[TradingViewChart] 📊 User scrolled to left edge, loading more history...');
                 isLoadingRef.current = true;
 
                 try {
-                    const success = await onLoadMore();
+                    const success = await onLoadMoreRef.current();
                     if (success) {
                         console.log('[TradingViewChart] ✅ More history loaded successfully');
                     }
@@ -102,23 +108,44 @@ const TradingViewChart: React.FC<TradingViewChartProps> = ({ data, containerClas
             resizeObserver.disconnect();
             chart.remove();
         };
-    }, [onLoadMore]);
+    }, []);
 
     // 實時更新處理 - 永不自動滾動，讓用戶自己決定何時查看最新數據
     useEffect(() => {
-        if (!seriesRef.current || !data || data.length === 0) return;
+        if (!seriesRef.current || !chartRef.current || !data || data.length === 0) return;
+
+        const timeScale = chartRef.current.timeScale();
+        const previousData = seriesRef.current.currentData as CandlestickData[] | undefined;
+        const previousLength = previousData?.length ?? 0;
 
         const latestBar = data[data.length - 1];
+        const firstBar = data[0];
 
-        // 如果數據長度發生變化,或者數據為新,則重新設置整個數據
-        // 但不會自動滾動，保持用戶當前的查看位置
-        if (data.length !== (seriesRef.current.dataCount || 0)) {
+        if (previousData && previousLength > 0) {
+            const prevFirstTime = Number(previousData[0].time);
+            const nextFirstTime = Number(firstBar.time);
+
+            // 僅在「左側增量加載」時保存當前視圖，避免視角跳動
+            if (data.length > previousLength && nextFirstTime < prevFirstTime) {
+                prevRangeRef.current = timeScale.getVisibleLogicalRange();
+            } else {
+                prevRangeRef.current = null;
+            }
+        }
+
+        // 初始化或左側增量加載時才 setData，避免頻繁重置時間軸
+        if (previousLength === 0 || (prevRangeRef.current && data.length > previousLength)) {
             seriesRef.current.setData(data);
-            seriesRef.current.dataCount = data.length;
-            // 移除自動滾動邏輯，讓用戶自己決定何時查看最新數據
+            seriesRef.current.currentData = data;
+
+            if (prevRangeRef.current) {
+                timeScale.setVisibleLogicalRange(prevRangeRef.current);
+                prevRangeRef.current = null;
+            }
         } else {
-            // 更新最後一根 K 線（不會觸發滾動）
+            // 實時更新最後一根或追加新 K 線（不會自動滾動到最新）
             seriesRef.current.update(latestBar);
+            seriesRef.current.currentData = data;
         }
     }, [data]);
 
